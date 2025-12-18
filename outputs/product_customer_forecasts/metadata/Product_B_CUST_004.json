@@ -1,0 +1,23 @@
+{
+  "product": "Product_B",
+  "customer_id": "CUST_004",
+  "model_type": "ARIMA",
+  "order": [
+    2,
+    0,
+    0
+  ],
+  "seasonal_order": [
+    1,
+    1,
+    0,
+    12
+  ],
+  "rmse": 63.94117893466825,
+  "mae": 53.11998035674808,
+  "mape": NaN,
+  "forecast_months": 12,
+  "success": true,
+  "error_message": null,
+  "generated_on": "2025-12-16 19:45:33"
+}

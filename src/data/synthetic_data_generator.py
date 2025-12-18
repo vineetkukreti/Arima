@@ -1,8 +1,8 @@
 """Synthetic data generator for ARIMA experiments.
 
-This script derives realistic demand profiles from the historical
-`ProductForecast.xlsx` source data and produces an extended synthetic dataset
-with controllable trends, seasonality, and stochastic shocks.
+This utility now resides under ``src/data`` so that all data-oriented tooling is
+co-located. The structure makes it easier to add future optimisation backends
+(such as gurobipy-driven scenarios) without mixing model code and data code.
 """
 from __future__ import annotations
 
@@ -13,9 +13,10 @@ from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parent.parent
-SOURCE_PATH = ROOT / "data" / "ProductForecast.xlsx"
-OUTPUT_DIR = ROOT / "data" / "generated_data"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = PROJECT_ROOT / "data"
+SOURCE_PATH = DATA_DIR / "ProductForecast.xlsx"
+OUTPUT_DIR = DATA_DIR / "generated_data"
 OUTPUT_FILE = OUTPUT_DIR / "synthetic_product_forecast.csv"
 AGG_FILE = OUTPUT_DIR / "synthetic_item_demand.csv"
 
@@ -101,7 +102,6 @@ def _generate_series(
         season_factor = seasonal_table.loc[spec.item_code, month]
         seasonal = trend * (1 + seasonal_strength * (season_factor - 1))
 
-        # Promotion lift during peak months (Nov/Dec) and sporadic campaign spikes.
         promo_lift = 0.0
         if month in {11, 12}:
             promo_lift += rng.normal(0.05, 0.02)

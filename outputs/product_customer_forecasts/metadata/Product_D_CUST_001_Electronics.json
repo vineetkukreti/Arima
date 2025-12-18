@@ -1,0 +1,25 @@
+{
+  "product": "Product_D",
+  "customer_id": "CUST_001",
+  "product_category": "Electronics",
+  "model_type": "ARIMA",
+  "order": [
+    0,
+    0,
+    0
+  ],
+  "seasonal_order": [
+    0,
+    1,
+    0,
+    12
+  ],
+  "rmse": 14.853450777512949,
+  "mae": 12.875,
+  "mape": NaN,
+  "forecast_months": 6,
+  "aggregation_mode": "monthly",
+  "success": true,
+  "error_message": null,
+  "generated_on": "2025-12-18 23:43:40"
+}

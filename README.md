@@ -1,67 +1,122 @@
-# ARIMA Product Forecasting System
+# Forecasting & Optimization System
 
-A comprehensive time series forecasting system using ARIMA (AutoRegressive Integrated Moving Average) to predict product demand/sales for the next 36-60 months.
+A comprehensive forecasting and optimization platform supporting multiple modeling approaches:
+- **ARIMA**: Statistical time series forecasting for demand prediction
+- **Gurobi**: Mathematical optimization for demand planning and resource allocation
 
 ## 📊 Project Overview
 
-This project implements an end-to-end ARIMA forecasting pipeline that:
-- Loads and aggregates product forecast data from Excel
-- Performs exploratory data analysis (EDA)
-- Tests for stationarity and applies transformations
-- Automatically determines optimal ARIMA parameters
-- Trains and validates the forecasting model
-- Generates 36-60 month future predictions with confidence intervals
-- Exports results to Excel/CSV with visualizations
+This project provides production-ready implementations for:
+- **ARIMA Forecasting**: Predict product demand/sales for the next 60 months using AutoRegressive Integrated Moving Average models
+- **Gurobi Optimization**: Solve demand planning problems with production scheduling, inventory management, and cost minimization (requires Gurobi license)
+- Comprehensive data preprocessing and synthetic data generation
+- Automated model selection and parameter tuning
+- Professional visualizations and reporting
 
 ## 📁 Project Structure
 
 ```
 arima/
 ├── data/
-│   └── ProductForecast.xlsx          # Source data
-├── notebooks/
-│   ├── 01_data_exploration.ipynb     # EDA and data analysis
-│   └── 02_arima_modeling.ipynb       # Model development and forecasting
+│   ├── ProductForecast.xlsx              # Source data
+│   └── generated_data/                   # Synthetic datasets
+│       ├── synthetic_product_forecast.csv
+│       └── synthetic_item_demand.csv
 ├── src/
-│   └── arima_forecast.py             # Production script
+│   ├── __init__.py                       # Package initialization
+│   ├── models/                           # Forecasting & optimization models
+│   │   ├── __init__.py
+│   │   ├── arima_forecast.py            # ARIMA time series forecasting
+│   │   └── gurobi_optimizer.py          # Gurobi optimization workflows
+│   └── data/                             # Data utilities
+│       ├── __init__.py
+│       └── synthetic_data_generator.py  # Synthetic data generation
+├── notebooks/
+│   ├── 01_data_exploration.ipynb         # EDA and analysis
+│   └── 02_arima_modeling.ipynb           # Interactive modeling
 ├── outputs/
-│   ├── forecast_results.xlsx         # Forecast results (Excel)
-│   ├── forecast_results.csv          # Forecast results (CSV)
-│   ├── cleaned_timeseries.csv        # Processed data
-│   └── visualizations/               # All generated plots
-│       ├── 01_timeseries_overview.png
-│       ├── 02_decomposition.png
-│       ├── 03_stationarity_tests.png
-│       ├── 04_acf_pacf.png
-│       ├── 05_residual_diagnostics.png
-│       ├── 06_forecast_plot.png
-│       └── 07_train_test_validation.png
-├── requirements.txt                  # Python dependencies
-└── README.md                         # This file
+│   ├── forecast_results.xlsx             # ARIMA forecast (Excel)
+│   ├── forecast_results.csv              # ARIMA forecast (CSV)
+│   ├── optimization_results.csv          # Gurobi results
+│   └── visualizations/                   # Generated plots
+│       └── forecast_final.png
+├── main.py                               # CLI entry point
+├── requirements.txt                      # Python dependencies
+├── pyproject.toml                        # Project metadata
+└── README.md                             # This file
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.13+ (or 3.8+)
 - pip package manager
+- **Optional**: Gurobi license (for optimization features)
 
 ### Installation
 
-1. **Clone or navigate to the project directory:**
+1. **Navigate to the project directory:**
    ```bash
    cd /home/vineet/Desktop/projects/arima
    ```
 
-2. **Install required packages:**
+2. **Create and activate virtual environment (recommended):**
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. **Install required packages:**
    ```bash
    pip install -r requirements.txt
    ```
 
+4. **Optional - Install Gurobi (for optimization):**
+   ```bash
+   pip install gurobipy
+   # Obtain free academic license at: https://www.gurobi.com/downloads/
+   ```
+
 ### Usage
 
-#### Option 1: Using Jupyter Notebooks (Recommended for exploration)
+#### Command Line Interface (Main Entry Point)
+
+**Run ARIMA Forecasting (Default):**
+```bash
+python main.py
+# or explicitly:
+python main.py --model arima
+```
+
+**Run Gurobi Optimization:**
+```bash
+python main.py --model gurobi
+```
+
+**Help:**
+```bash
+python main.py --help
+```
+
+#### Direct Module Execution
+
+**ARIMA Forecasting:**
+```bash
+python -m src.models.arima_forecast
+```
+
+**Gurobi Optimization:**
+```bash
+python -m src.models.gurobi_optimizer
+```
+
+**Generate Synthetic Data:**
+```bash
+python -m src.data.synthetic_data_generator
+```
+
+#### Jupyter Notebooks (Interactive Exploration)
 
 1. **Start Jupyter:**
    ```bash
@@ -71,21 +126,6 @@ arima/
 2. **Run notebooks in order:**
    - `notebooks/01_data_exploration.ipynb` - Data exploration and EDA
    - `notebooks/02_arima_modeling.ipynb` - Complete ARIMA modeling and forecasting
-
-#### Option 2: Using Python Script (Automated)
-
-Run the production script for automated forecasting:
-```bash
-cd src
-python arima_forecast.py
-```
-
-This will:
-- Load and process the data
-- Find optimal ARIMA parameters
-- Generate 60-month forecast
-- Create visualizations
-- Export results to `outputs/`
 
 ## 📈 Data Description
 
@@ -102,8 +142,10 @@ This will:
 
 ## 🔬 Methodology
 
+### ARIMA Time Series Forecasting
+
 ### 1. Data Preprocessing
-- Load Excel data
+- Load Excel/CSV data
 - Aggregate by time period (monthly)
 - Handle missing values via interpolation
 - Set proper datetime index with monthly frequency
@@ -133,9 +175,23 @@ This will:
 
 ### 6. Forecasting
 - Retrain on full dataset
-- Generate 36-60 month forecast
+- Generate 60-month forecast
 - Calculate 95% confidence intervals
 - Comprehensive visualization
+
+### Gurobi Optimization
+
+The optimization module provides a framework for:
+- **Production Planning**: Determine optimal production quantities
+- **Inventory Management**: Balance holding costs with demand fulfillment
+- **Cost Minimization**: Minimize total system costs (production + inventory)
+- **Constraint Satisfaction**: Meet demand while respecting capacity limits
+
+**Key Components:**
+- Decision variables: Production and inventory levels per period
+- Objective function: Minimize total cost
+- Constraints: Inventory balance, demand satisfaction, capacity limits
+- Solver: Gurobi MIP/LP solver
 
 ## 📊 Output Files
 
@@ -189,22 +245,23 @@ The forecasts provide actionable insights for:
 
 ## 🔧 Customization
 
-### Changing Forecast Horizon
+### ARIMA Forecasting
 
-In `notebooks/02_arima_modeling.ipynb` or `src/arima_forecast.py`:
+**Changing Forecast Horizon:**
+
+In `src/models/arima_forecast.py`:
 ```python
-forecast_steps = 60  # Change to desired number of months
+FORECAST_STEPS = 60  # Change to desired number of months
 ```
 
-### Adjusting Train-Test Split
-
+**Adjusting Train-Test Split:**
 ```python
 train_size = int(len(df_ts) * 0.8)  # Change 0.8 to desired ratio
 ```
 
-### Enabling Seasonal ARIMA
+**Enabling Seasonal ARIMA:**
 
-In `auto_arima()`:
+In `auto_arima()` call:
 ```python
 auto_model = auto_arima(
     train,
@@ -214,16 +271,40 @@ auto_model = auto_arima(
 )
 ```
 
+### Gurobi Optimization
+
+**Customizing Optimization Model:**
+
+Edit `src/models/gurobi_optimizer.py` to:
+- Add new decision variables (e.g., transportation, workforce)
+- Include additional constraints (capacity, budget, service levels)
+- Modify objective function (maximize profit, minimize lead time)
+- Extend to multi-product or multi-location scenarios
+
+**Example: Adding Capacity Constraints:**
+```python
+# In build_optimization_model():
+max_capacity = 5000  # units per period
+for t in range(forecast_periods):
+    model.addConstr(production[t] <= max_capacity, f"capacity_{t}")
+```
+
 ## 📚 Dependencies
 
-Key packages:
-- `pandas`: Data manipulation
-- `numpy`: Numerical operations
-- `matplotlib`, `seaborn`: Visualization
-- `statsmodels`: ARIMA modeling and statistical tests
-- `pmdarima`: Auto ARIMA parameter selection
-- `scipy`, `sklearn`: Statistical analysis and metrics
-- `openpyxl`: Excel file handling
+### Core Packages
+- `pandas>=2.0.0`: Data manipulation and analysis
+- `numpy>=1.24.0`: Numerical operations
+- `matplotlib>=3.7.0`, `seaborn>=0.12.0`: Visualization
+- `statsmodels>=0.14.0`: ARIMA modeling and statistical tests
+- `pmdarima>=2.0.0`: Auto ARIMA parameter selection
+- `scipy>=1.10.0`, `sklearn`: Statistical analysis and metrics
+- `openpyxl>=3.1.0`: Excel file handling
+
+### Optional (Optimization)
+- `gurobipy>=11.0.0`: Mathematical optimization solver (requires license)
+
+### Development
+- `jupyter>=1.0.0`, `notebook>=6.5.0`: Interactive notebooks
 
 See `requirements.txt` for complete list with versions.
 
@@ -238,6 +319,15 @@ pip install pmdarima --no-build-isolation
 pip install --upgrade openpyxl
 ```
 
+### Gurobi License Issues
+```bash
+# Check if Gurobi is installed and licensed:
+python -c "import gurobipy; print(gurobipy.gurobi.version())"
+
+# Academic/Free license: https://www.gurobi.com/downloads/
+# The free license allows models up to 2000 variables/constraints
+```
+
 ### Jupyter Notebook Not Found
 ```bash
 # Verify jupyter is installed:
@@ -245,27 +335,7 @@ pip install --upgrade jupyter notebook
 ```
 
 ### Data Loading Errors
-- Ensure `ProductForecast.xlsx` is in the `data/` directory
-- Check that file path is correct in scripts/notebooks
+- Ensure `ProductForecast.xlsx` or synthetic data is in `data/` directory
+- Check that file paths are correct in scripts
+- Verify CSV format matches expected columns
 
-## 📞 Support
-
-For issues or questions:
-1. Check error messages in notebook/script output
-2. Verify all dependencies are installed
-3. Ensure data file is in correct location
-
-## 📄 License
-
-This project is created for product forecasting analysis.
-
-## 🙏 Acknowledgments
-
-- Built with statsmodels and pmdarima libraries
-- ARIMA methodology based on time series forecasting best practices
-
----
-
-**Last Updated**: December 7, 2025
-
-**Status**: ✅ Production Ready

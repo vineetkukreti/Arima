@@ -1,0 +1,25 @@
+{
+  "product": "Product_E",
+  "customer_id": "CUST_001",
+  "product_category": "Hardware",
+  "model_type": "ARIMA",
+  "order": [
+    0,
+    0,
+    1
+  ],
+  "seasonal_order": [
+    1,
+    1,
+    0,
+    12
+  ],
+  "rmse": 9.891964041606172,
+  "mae": 8.053784233901425,
+  "mape": NaN,
+  "forecast_months": 6,
+  "aggregation_mode": "monthly",
+  "success": true,
+  "error_message": null,
+  "generated_on": "2025-12-18 23:44:23"
+}
