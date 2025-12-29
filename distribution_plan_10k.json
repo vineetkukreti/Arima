@@ -1,0 +1,656 @@
+{
+  "CUST_001": {
+    "0": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        47.85
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        49.31
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        47.51
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        48.71
+      ]
+    },
+    "1": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        54.14
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        53.86
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        47.54
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        52.42
+      ]
+    },
+    "2": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        54.77
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        45.65
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        48.42
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        44.58
+      ]
+    },
+    "3": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        59.86
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        47.92
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        53.36
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        44.2
+      ]
+    },
+    "4": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        48.81
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        54.03
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        47.78
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        46.2
+      ]
+    },
+    "5": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        52.94
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        47.31
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        54.12
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        42.78
+      ]
+    },
+    "6": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        43.55
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        63.33
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        55.53
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        49.75
+      ]
+    },
+    "7": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        51.18
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        52.87
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        48.66
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        47.13
+      ]
+    },
+    "8": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        55.77
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        49.27
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        45.92
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        55.62
+      ]
+    },
+    "9": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        49.53
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        50.09
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        48.38
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        43.4
+      ]
+    },
+    "10": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        55.2
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        52.39
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        55.11
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        58.25
+      ]
+    },
+    "11": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        54.84
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        52.79
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        52.83
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        46.37
+      ]
+    }
+  },
+  "CUST_002": {
+    "0": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        56.18
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        50.24
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        65.34
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        44.97
+      ]
+    },
+    "1": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        55.85
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        57.42
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        59.16
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        50.1
+      ]
+    },
+    "2": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        58.76
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        58.75
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        67.58
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        53.76
+      ]
+    },
+    "3": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        51.46
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        52.33
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        61.42
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        50.21
+      ]
+    },
+    "4": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        61.1
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        54.46
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        73.67
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        47.86
+      ]
+    },
+    "5": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        55.66
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        53.92
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        60.52
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        41.45
+      ]
+    },
+    "6": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        65.08
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        56.39
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        65.8
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        42.77
+      ]
+    },
+    "7": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        51.28
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        56.78
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        60.63
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        46.66
+      ]
+    },
+    "8": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        63.57
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        60.39
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        75.74
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        45.34
+      ]
+    },
+    "9": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        56.25
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        54.84
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        58.79
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        47.85
+      ]
+    },
+    "10": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        52.63
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        59.92
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        68.25
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        49.67
+      ]
+    },
+    "11": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        54.31
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        61.45
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        62.87
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        52.84
+      ]
+    }
+  },
+  "CUST_003": {
+    "0": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        67.03
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        44.4
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        50.98
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        47.57
+      ]
+    },
+    "1": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        77.08
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        44.22
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        59.73
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        62.85
+      ]
+    },
+    "2": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        59.1
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        53.22
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        51.44
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        50.58
+      ]
+    },
+    "3": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        66.49
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        53.27
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        61.04
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        58.87
+      ]
+    },
+    "4": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        62.5
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        54.26
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        66.28
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        38.38
+      ]
+    },
+    "5": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        62.91
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        54.78
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        55.36
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        56.98
+      ]
+    },
+    "6": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        62.86
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        52.48
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        48.33
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        49.4
+      ]
+    },
+    "7": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        68.65
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        61.09
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        66.44
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        40.63
+      ]
+    },
+    "8": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        69.01
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        45.8
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        62.77
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        52.66
+      ]
+    },
+    "9": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        70.36
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        50.04
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        56.13
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        49.43
+      ]
+    },
+    "10": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        63.26
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        54.29
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        58.04
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        54.46
+      ]
+    },
+    "11": {
+      "Product_A": [
+        "FUTURE_MASTER_BATCH",
+        68.19
+      ],
+      "Product_B": [
+        "FUTURE_MASTER_BATCH",
+        47.42
+      ],
+      "Product_C": [
+        "FUTURE_MASTER_BATCH",
+        54.45
+      ],
+      "Product_D": [
+        "FUTURE_MASTER_BATCH",
+        57.43
+      ]
+    }
+  }
+}

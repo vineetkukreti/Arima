@@ -6,7 +6,6 @@ combination. This enables granular analysis of product performance per customer.
 
 Expected Data Columns:
     - Year: Year of the transaction
-    - Month: Month of the transaction
     - Product Category: Category classification
     - Product: Specific product identifier
     - CustomerID: Customer identifier
@@ -20,7 +19,7 @@ Usage:
     python -m src.models.product_customer_forecast --data "data/ProductForecast.xlsx"
     
     # Specify forecast horizon
-    python -m src.models.product_customer_forecast --forecast-months 24
+    python -m src.models.product_customer_forecast --forecast-years 5
     
     # Use Prophet instead of ARIMA
     python -m src.models.product_customer_forecast --model-type prophet
@@ -29,7 +28,7 @@ Usage:
     python -m src.models.product_customer_forecast --visualize
 
 Author: ARIMA Forecasting System
-Date: 2025-12-16
+Date: 2025-12-30
 """
 
 from __future__ import annotations
@@ -69,17 +68,25 @@ class ForecastConfig:
     """Configuration for forecasting parameters."""
     
     data_path: Path
-    forecast_months: int = 12
-    min_observations: int = 24
+    forecast_years: int = 3  # Default: 3 years of forecasting
+    min_observations: int = 3  # Minimum 3 years of historical data
     model_type: str = "arima"  # "arima" or "prophet"
     visualize: bool = False
     train_test_split: float = 0.8
-    seasonal_period: int = 12
+    seasonal_period: int = 1  # No seasonality for yearly data
     confidence_level: float = 0.95
-    aggregation_mode: str = "monthly"  # "monthly" or "yearly"
-    parallel_processing: bool = False
+    aggregation_mode: str = "yearly"  # "yearly" data aggregation (default)
+    parallel_processing: bool = True  # Default: enabled for faster processing
     num_workers: int = 4
     round_forecasts: bool = True
+    filter_product: Optional[str] = None
+    filter_customer: Optional[str] = None
+    filter_category: Optional[str] = None
+    
+    @property
+    def forecast_periods(self) -> int:
+        """Get forecast periods (for backward compatibility and internal use)."""
+        return self.forecast_years
 
 
 @dataclass
@@ -131,20 +138,20 @@ class ProductCustomerForecaster:
         print(f"  Columns: {', '.join(df.columns.tolist())}")
         
         return df
-    
+    # 
     def prepare_timeseries_data(self, df: pd.DataFrame) -> Dict[Tuple[str, str, str], pd.DataFrame]:
         """Group data by Product-CustomerID-Category and create time series."""
         print("\nPreparing time series data...")
         print(f"  Aggregation mode: {self.config.aggregation_mode}")
         
         # Validate required columns
-        required_cols = ['Year', 'Month', 'Product', 'CustomerID', 'Product Category', 'Quantity']
+        required_cols = ['Year', 'Product', 'CustomerID', 'Product Category', 'Quantity']
         missing_cols = [col for col in required_cols if col not in df.columns]
         if missing_cols:
             raise ValueError(f"Missing required columns: {missing_cols}")
         
         if self.config.aggregation_mode == 'yearly':
-            # Yearly aggregation
+            # Yearly aggregation (default mode)
             grouped_data = {}
             
             for (product, customer_id, category), group in df.groupby(['Product', 'CustomerID', 'Product Category']):
@@ -154,12 +161,19 @@ class ProductCustomerForecaster:
                 ts_data = ts_data[['Date', 'Quantity']].set_index('Date')
                 ts_data = ts_data.asfreq('YS', fill_value=0)  # Yearly start frequency
                 
-                # Adjust minimum observations for yearly data (e.g., 3 years minimum)
-                min_obs_yearly = max(3, self.config.min_observations // 12)
-                if len(ts_data) >= min_obs_yearly:
+                # Filter by minimum observations
+                if len(ts_data) >= self.config.min_observations:
                     grouped_data[(product, customer_id, category)] = ts_data
         else:
-            # Monthly aggregation (default)
+            # Monthly aggregation (fallback for backward compatibility)
+            # Validate Month column is present
+            if 'Month' not in df.columns:
+                raise ValueError("Month column is required for monthly aggregation mode")
+            
+            # Clean data: remove rows with NaN in required columns and convert to proper types
+            df = df.dropna(subset=['Year', 'Month'])
+            df['Year'] = df['Year'].astype(int)
+            df['Month'] = df['Month'].astype(int)
             df['Date'] = pd.to_datetime(df['Year'].astype(str) + '-' + df['Month'].astype(str).str.zfill(2) + '-01')
             grouped_data = {}
             
@@ -174,8 +188,7 @@ class ProductCustomerForecaster:
                     grouped_data[(product, customer_id, category)] = ts_data
         
         print(f"✓ Created {len(grouped_data)} Product-CustomerID-Category combinations")
-        min_obs = max(3, self.config.min_observations // 12) if self.config.aggregation_mode == 'yearly' else self.config.min_observations
-        print(f"  (Filtered out combinations with < {min_obs} observations)")
+        print(f"  (Filtered out combinations with < {self.config.min_observations} observations)")
         
         return grouped_data
     
@@ -240,7 +253,7 @@ class ProductCustomerForecaster:
                 metrics = {'rmse': rmse, 'mae': mae, 'mape': mape}
             
             # Generate forecast
-            forecast_result = fitted_model.get_forecast(steps=self.config.forecast_months)
+            forecast_result = fitted_model.get_forecast(steps=self.config.forecast_periods)
             forecast_values = forecast_result.predicted_mean
             forecast_ci = forecast_result.conf_int(alpha=1 - self.config.confidence_level)
             
@@ -254,7 +267,7 @@ class ProductCustomerForecaster:
             
             forecast_dates = pd.date_range(
                 start=ts_data.index[-1] + offset,
-                periods=self.config.forecast_months,
+                periods=self.config.forecast_periods,
                 freq=freq
             )
             
@@ -356,11 +369,11 @@ class ProductCustomerForecaster:
             
             # Generate forecast
             freq_str = 'YS' if self.config.aggregation_mode == 'yearly' else 'MS'
-            future = model.make_future_dataframe(periods=self.config.forecast_months, freq=freq_str)
+            future = model.make_future_dataframe(periods=self.config.forecast_periods, freq=freq_str)
             forecast = model.predict(future)
             
             # Extract future forecast only
-            forecast_df = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].iloc[-self.config.forecast_months:]
+            forecast_df = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].iloc[-self.config.forecast_periods:]
             forecast_df.columns = ['Date', 'Forecast', 'Lower_CI', 'Upper_CI']
             forecast_df.set_index('Date', inplace=True)
             
@@ -489,7 +502,7 @@ class ProductCustomerForecaster:
             'rmse': result.rmse,
             'mae': result.mae,
             'mape': result.mape,
-            'forecast_months': self.config.forecast_months,
+            'forecast_years': self.config.forecast_years,
             'aggregation_mode': self.config.aggregation_mode,
             'success': result.success,
             'error_message': result.error_message,
@@ -596,6 +609,24 @@ class ProductCustomerForecaster:
         # Load data
         df = self.load_data()
         
+        # Apply filters if specified
+        if self.config.filter_product:
+            print(f"Filtering by Product: {self.config.filter_product}")
+            df = df[df['Product'] == self.config.filter_product]
+            
+        if self.config.filter_customer:
+            print(f"Filtering by CustomerID: {self.config.filter_customer}")
+            # Ensure string comparison for CustomerID
+            df = df[df['CustomerID'].astype(str) == str(self.config.filter_customer)]
+            
+        if self.config.filter_category:
+            print(f"Filtering by Product Category: {self.config.filter_category}")
+            df = df[df['Product Category'] == self.config.filter_category]
+            
+        if len(df) == 0:
+            print("\n✗ No data found after applying filters!")
+            return
+
         # Prepare time series data
         grouped_data = self.prepare_timeseries_data(df)
         
@@ -650,7 +681,7 @@ class ProductCustomerForecaster:
             avg_mape = np.mean([r.mape for r in self.results if r.success and r.mape])
             print(f"Average MAPE: {avg_mape:.2f}%")
         
-        print(f"\nForecast Horizon: {self.config.forecast_months} months")
+        print(f"\nForecast Horizon: {self.config.forecast_years} years")
         print(f"Results saved to: {OUTPUT_DIR}")
         print("=" * 80)
         print("\n✓ ANALYSIS COMPLETE!")
@@ -659,7 +690,7 @@ class ProductCustomerForecaster:
 def main():
     """Main entry point with argument parsing."""
     parser = argparse.ArgumentParser(
-        description='Product-Customer Forecasting System'
+        description='Product-Customer Forecasting System - Yearly Aggregation Mode'
     )
     parser.add_argument(
         '--data',
@@ -668,16 +699,16 @@ def main():
         help='Path to data file (Excel or CSV)'
     )
     parser.add_argument(
-        '--forecast-months',
+        '--forecast-years',
         type=int,
-        default=12,
-        help='Number of months to forecast (default: 12)'
+        default=3,
+        help='Number of years to forecast (default: 3)'
     )
     parser.add_argument(
         '--min-observations',
         type=int,
-        default=24,
-        help='Minimum observations required per combination (default: 24)'
+        default=3,
+        help='Minimum observations (years) required per combination (default: 3)'
     )
     parser.add_argument(
         '--model-type',
@@ -695,13 +726,13 @@ def main():
         '--aggregation',
         type=str,
         choices=['monthly', 'yearly'],
-        default='monthly',
-        help='Time aggregation mode: monthly (default) or yearly for faster processing'
+        default='yearly',
+        help='Time aggregation mode: yearly (default) or monthly'
     )
     parser.add_argument(
-        '--parallel',
+        '--no-parallel',
         action='store_true',
-        help='Enable parallel processing for faster execution'
+        help='Disable parallel processing (parallel is enabled by default)'
     )
     parser.add_argument(
         '--workers',
@@ -715,6 +746,21 @@ def main():
         default=True,
         help='Round forecasts to non-negative integers (default: True)'
     )
+    parser.add_argument(
+        '--product',
+        type=str,
+        help='Filter by specific Product'
+    )
+    parser.add_argument(
+        '--customer',
+        type=str,
+        help='Filter by specific CustomerID'
+    )
+    parser.add_argument(
+        '--category',
+        type=str,
+        help='Filter by specific Product Category'
+    )
     
     args = parser.parse_args()
     
@@ -726,14 +772,17 @@ def main():
     # Create configuration
     config = ForecastConfig(
         data_path=data_path,
-        forecast_months=args.forecast_months,
+        forecast_years=args.forecast_years,
         min_observations=args.min_observations,
         model_type=args.model_type,
         visualize=args.visualize,
         aggregation_mode=args.aggregation,
-        parallel_processing=args.parallel,
+        parallel_processing=not args.no_parallel,  # Default True, disable with --no-parallel
         num_workers=args.workers,
-        round_forecasts=args.round_forecasts
+        round_forecasts=args.round_forecasts,
+        filter_product=args.product,
+        filter_customer=args.customer,
+        filter_category=args.category
     )
     
     # Run forecasting

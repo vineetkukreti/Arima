@@ -1,8 +1,8 @@
-"""Synthetic data generator for ARIMA experiments.
+"""Synthetic data generator for ARIMA experiments - Yearly Data
 
-This utility now resides under ``src/data`` so that all data-oriented tooling is
-co-located. The structure makes it easier to add future optimisation backends
-(such as gurobipy-driven scenarios) without mixing model code and data code.
+This utility generates synthetic yearly sales data for testing the ARIMA forecasting system.
+The generated data simulates customer-item level transactions aggregated by year,
+with realistic trend patterns and occasional growth spurts representing good/bad years.
 """
 from __future__ import annotations
 
@@ -35,7 +35,8 @@ class SeriesSpec:
 
 def _load_source() -> pd.DataFrame:
     df = pd.read_excel(SOURCE_PATH)
-    df["Time"] = pd.PeriodIndex(df["Time"], freq="M")
+    # Convert to yearly periods by extracting year from Time
+    df["Time"] = pd.PeriodIndex(df["Time"], freq="Y")
     return df
 
 
@@ -53,10 +54,8 @@ def _seasonality_table(df: pd.DataFrame) -> pd.DataFrame:
 def _series_specs(df: pd.DataFrame) -> Dict[Tuple[int, int], SeriesSpec]:
     df = df.copy()
     start = df["Time"].min()
-    df["time_idx"] = (
-        (df["Time"].dt.year - start.year) * 12
-        + (df["Time"].dt.month - start.month)
-    )
+    # For yearly data, time index is just year difference
+    df["time_idx"] = df["Time"].dt.year - start.year
 
     stats = {}
     grouped = df.groupby(["CUSTID", "ItemCode"])
@@ -83,11 +82,10 @@ def _series_specs(df: pd.DataFrame) -> Dict[Tuple[int, int], SeriesSpec]:
 
 def _generate_series(
     spec: SeriesSpec,
-    seasonal_table: pd.DataFrame,
     periods: pd.PeriodIndex,
     rng: np.random.Generator,
 ) -> pd.DataFrame:
-    seasonal_strength = 0.25 + 0.05 * (spec.item_category == 2)
+    """Generate yearly time series for a customer-item combination."""
     slope = spec.slope * rng.normal(1.0, 0.2)
     max_slope = 0.45 * spec.base_mean / len(periods)
     slope = float(np.clip(slope, -max_slope, max_slope))
@@ -97,26 +95,23 @@ def _generate_series(
 
     rows = []
     for idx, period in enumerate(periods):
-        month = period.month
+        # Simple trend with noise for yearly data
         trend = level + slope * idx
-        season_factor = seasonal_table.loc[spec.item_code, month]
-        seasonal = trend * (1 + seasonal_strength * (season_factor - 1))
 
-        promo_lift = 0.0
-        if month in {11, 12}:
-            promo_lift += rng.normal(0.05, 0.02)
-        if rng.random() < 0.035:
-            promo_lift += rng.uniform(0.12, 0.32)
+        # Add occasional growth spurts (representing good years)
+        growth_boost = 0.0
+        if rng.random() < 0.15:  # 15% chance of a good year
+            growth_boost = rng.uniform(0.10, 0.25)
 
-        baseline = seasonal * (1 + promo_lift)
+        baseline = trend * (1 + growth_boost)
         innovation = rng.normal(0.0, spec.noise_scale)
-        value = baseline + 0.35 * (prev - seasonal) + innovation
+        value = baseline + 0.35 * (prev - trend) + innovation
         value = max(0.0, value)
         prev = value
 
         rows.append(
             {
-                "Time": period.to_timestamp().strftime("%Y-%m"),
+                "Time": str(period.year),  # Just the year as string
                 "CUSTID": spec.cust_id,
                 "ItemCode": spec.item_code,
                 "ItemCategory": spec.item_category,
@@ -127,16 +122,18 @@ def _generate_series(
 
 
 def build_dataset() -> None:
+    """Generate synthetic yearly dataset."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     df = _load_source()
-    seasonal_table = _seasonality_table(df)
+    # No seasonality table needed for yearly data
     specs = _series_specs(df)
 
     rng = np.random.default_rng(20241207)
-    periods = pd.period_range("2019-01", "2024-12", freq="M")
+    # Generate yearly data from 2019 to 2024
+    periods = pd.period_range("2019", "2024", freq="Y")
 
     synthetic_frames = [
-        _generate_series(spec, seasonal_table, periods, rng)
+        _generate_series(spec, periods, rng)
         for spec in specs.values()
     ]
     synthetic = pd.concat(synthetic_frames, ignore_index=True)
@@ -144,6 +141,7 @@ def build_dataset() -> None:
 
     synthetic.to_csv(OUTPUT_FILE, index=False)
 
+    # Aggregate by year for item demand
     aggregated = (
         synthetic.groupby(["Time", "ItemCode", "ItemCategory"], as_index=False)["Number"]
         .sum()

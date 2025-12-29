@@ -69,7 +69,7 @@ python -m src.models.product_customer_forecast --data "data/sales_data.csv"
 ### Configure Forecast Horizon
 
 ```bash
-# Forecast 24 months instead of default 12
+# Forecast 24 months instead of default 36
 python -m src.models.product_customer_forecast --forecast-months 24
 
 # Forecast 6 months
@@ -111,16 +111,16 @@ outputs/product_customer_forecasts/
 ├── consolidated_forecasts.xlsx    # Main Excel report
 ├── forecast_summary.csv           # Quick CSV summary
 ├── models/                        # Saved model files
-│   ├── Product_A_CUST_001.pkl
-│   ├── Product_A_CUST_002.pkl
+│   ├── Product_A_CUST_001_Electronics.pkl
+│   ├── Product_A_CUST_002_Electronics.pkl
 │   └── ...
 ├── metadata/                      # Model metadata (JSON)
-│   ├── Product_A_CUST_001.json
-│   ├── Product_A_CUST_002.json
+│   ├── Product_A_CUST_001_Electronics.json
+│   ├── Product_A_CUST_002_Electronics.json
 │   └── ...
 └── visualizations/                # Forecast plots (if --visualize)
-    ├── Product_A_CUST_001.png
-    ├── Product_A_CUST_002.png
+    ├── Product_A_CUST_001_Electronics.png
+    ├── Product_A_CUST_002_Electronics.png
     └── ...
 ```
 
@@ -180,7 +180,7 @@ import pickle
 from pathlib import Path
 
 # Load a specific model
-model_path = Path('outputs/product_customer_forecasts/models/Product_A_CUST_001.pkl')
+model_path = Path('outputs/product_customer_forecasts/models/Product_A_CUST_001_Electronics.pkl')
 with open(model_path, 'rb') as f:
     model = pickle.load(f)
 
@@ -190,11 +190,21 @@ new_forecast = model.forecast(steps=6)  # 6 more months
 
 ### Batch Processing Large Datasets
 
-The script automatically processes all combinations sequentially with a progress bar. For very large datasets (thousands of combinations):
+The script uses parallel processing by default with a progress bar. For very large datasets (thousands of combinations):
 
-1. Consider filtering data before running
-2. Use ARIMA instead of Prophet (faster)
-3. Disable visualizations (`--visualize` off by default)
+1. Parallel processing is **enabled by default** for faster execution
+2. Use `--workers N` to control the number of parallel workers (default: CPU-1)
+3. Use `--no-parallel` to disable parallel processing if needed
+4. Use ARIMA instead of Prophet (faster)
+5. Disable visualizations (`--visualize` off by default)
+
+**Example for optimal performance:**
+```bash
+# Use 8 workers for large datasets
+python -m src.models.product_customer_forecast \
+  --data "large_dataset.xlsx" \
+  --workers 8
+```
 
 ## Troubleshooting
 
@@ -252,8 +262,8 @@ pip install prophet
 4. **Identify best/worst performers** by sorting by MAPE
 5. **Generate visualizations** for key combinations:
    ```bash
-   python -m src.models.product_customer_forecast --data "data/your_data.xlsx" --visualize
-   ```
+python -m src.models.product_customer_forecast --data "data/your_data.xlsx" --visualize
+```
 6. **Use forecasts** for inventory planning, demand forecasting, or customer analysis
 
 ## Next Steps
