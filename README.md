@@ -1,121 +1,147 @@
-# Product-Customer-Category ARIMA Forecasting System
+# ARIMA Product Forecasting
 
-Time series forecasting system for product demand using ARIMA models with 3-way grouping by Product × Customer × Category.
+A forecasting system that predicts product demand using ARIMA models. It aggregates customer data at the product level and generates multi-year forecasts.
 
-## Features
+## What It Does
 
-- ✅ **3-way grouping**: Product × CustomerID × Product Category
-- ✅ **Multiple aggregation modes**: Monthly (default) or Yearly
-- ✅ **Parallel processing**: Speed up with multi-core processing
-- ✅ **Clean outputs**: Non-negative integer forecasts only (no decimals, no scientific notation)
-- ✅ **Comprehensive exports**: Excel, CSV, visualizations, and model files
+Takes historical sales data, groups it by product, and forecasts future demand. The system handles data validation, trains ARIMA models automatically, and outputs forecasts with performance metrics.
 
-## Quick Start
+## Installation
 
-### Installation
+Using uv:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync
+```
+
+Or pip:
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Usage
 
 ```bash
-# Install dependencies
-uv pip install -r requirements.txt
+python -m src.models.product_customer_forecast --data data/your_data.xlsx
+
+# With custom parameters
+python -m src.models.product_customer_forecast \
+    --data data/your_data.xlsx \
+    --forecast-years 5 \
+    --visualize
 ```
 
-### Basic Usage
+Or use the Python API:
+```python
+from src.models.product_customer_forecast import ProductCustomerForecaster, ForecastConfig
 
-```bash
-# Run with your data
-uv run python -m src.models.product_customer_forecast \
-  --data "data/your_file.xlsx" \
-  --forecast-months 36 \
-  --aggregation monthly
+config = ForecastConfig(
+    data_path='data/your_data.xlsx',
+    forecast_years=3
+)
+
+forecaster = ProductCustomerForecaster(config)
+forecaster.run()
+results_df = forecaster.get_results_dataframe()
 ```
 
-### With Parallel Processing (Default - Recommended for large datasets)
+## Input Format
 
-```bash
-# Parallel processing is enabled by default
-uv run python -m src.models.product_customer_forecast \
-  --data "data/your_file.xlsx" \
-  --forecast-months 36 \
-  --workers 8 \
-  --aggregation monthly
+Your data file needs these columns:
 
-# To disable parallel processing, use --no-parallel
-uv run python -m src.models.product_customer_forecast \
-  --data "data/your_file.xlsx" \
-  --no-parallel
+| Column | Type | Description |
+|--------|------|-------------|
+| Year | int | Year of transaction |
+| Product | string | Product identifier |
+| CustomerID | string | Customer identifier |
+| Quantity | int/float | Sales quantity |
+
+Example:
+```csv
+Year,Product,CustomerID,Quantity
+2020,Product_1,CUST_001,26
+2020,Product_1,CUST_006,16
+2021,Product_1,CUST_001,32
 ```
 
-## Data Requirements
+Common column name variations are automatically mapped (e.g., Time → Year).
 
-Your Excel/CSV file must contain these columns:
+## Output
 
-- `Year`: Year of transaction (e.g., 2023)
-- `Month`: Month of transaction (1-12)
-- `Product Category`: Category classification (e.g., "Electronics")
-- `Product`: Product identifier (e.g., "Product_A")
-- `CustomerID`: Customer identifier (e.g., "CUST_001")
-- `Quantity`: Sales/demand quantity (numeric)
-
-## Command Line Options
-
-```
---data PATH                     Path to Excel/CSV data file
---forecast-months N             Number of months to forecast (default: 36)
---min-observations N            Minimum data points required (default: 24)
---aggregation {monthly,yearly}  Time aggregation mode (default: monthly)
---no-parallel                   Disable parallel processing (enabled by default)
---workers N                     Number of parallel workers (default: CPU-1)
---visualize                     Generate forecast plots
---model-type {arima,prophet}    Model type (default: arima)
+Returns a DataFrame with forecasts:
+```python
+     Product  Num_Customers       Date  Forecast
+0  Product_1             90 2025-01-01       842
+1  Product_1             90 2026-01-01       842
 ```
 
-## Output Files
+Also generates JSON files with model metadata (parameters, error metrics, customer lists).
 
-Results saved to `outputs/product_customer_forecasts/`:
+## Configuration
 
-- `consolidated_forecasts.xlsx` - All forecasts and summary
-- `forecast_summary.csv` - Quick CSV summary
-- `models/*.pkl` - Trained models for each combination
-- `metadata/*.json` - Model parameters and metrics
-- `visualizations/*.png` - Forecast plots (if --visualize enabled)
+Key parameters:
 
-## Performance
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| data_path | Required | Path to data file |
+| forecast_years | 3 | Years to forecast |
+| min_observations | 5 | Min years needed |
+| visualize | False | Create charts |
+| parallel_processing | True | Use multiprocessing |
+| num_workers | 15 | Worker threads |
 
-For large datasets (2000+ combinations):
-- **Sequential**: ~4 hours
-- **Parallel (8 workers)**: ~30-40 minutes
-- **Speedup**: ~6-8x faster
+## How It Works
 
-## Example
+The system uses `pmdarima.auto_arima` to automatically find the best ARIMA model for each product. It searches through different parameter combinations and picks the one with the lowest AIC score.
 
-```bash
-# Generate test data
-python create_test_data.py
+Common models:
+- ARIMA(0,0,0) - Predicts the average (flat forecast)
+- ARIMA(1,0,0) - Uses last value to predict next
+- ARIMA(0,1,0) - Random walk with trend
 
-# Run forecast (parallel processing enabled by default)
-uv run python -m src.models.product_customer_forecast \
-  --data "data/test_forecast_data.xlsx" \
-  --forecast-months 6 \
-  --workers 4 \
-  --visualize
+Training uses 80% of data, validates on the remaining 20%, then forecasts future years.
+
+## Data Validation
+
+Automatically checks for:
+- Missing values and duplicates
+- Outliers (using IQR method)
+- Time series gaps
+- Zero or negative quantities
+
+Warnings are logged but don't stop processing.
+
+## Troubleshooting
+
+**Getting flat forecasts?**
+The model found no pattern in your data, so it predicts the mean. This is normal for data without trends.
+
+**"No valid Product groups found"?**
+Products need at least `min_observations` years of data. Try lowering this value.
+
+**Running slow?**
+Enable parallel processing: `--workers 15`, or filter to specific products: `--product Product_1`
+
+## Project Structure
+
 ```
-
-## Output Format
-
-All forecast values are guaranteed to be:
-- ✅ Non-negative (minimum: 0)
-- ✅ Integers only (no decimals)
-- ✅ No scientific notation
-
-## Documentation
-
-See `PRODUCT_CUSTOMER_FORECAST_GUIDE.md` for detailed usage guide.
+arima/
+├── src/models/product_customer_forecast.py  # Main code
+├── data/                                     # Input data
+├── outputs/product_customer_forecasts/       # Results
+│   ├── models/                              # Trained models
+│   ├── metadata/                            # JSON metadata
+│   └── visualizations/                      # Charts
+└── forecast_notebook.ipynb                   # Interactive notebook
+```
 
 ## Requirements
 
-- Python 3.10+
-- See `requirements.txt` for dependencies
+- Python 3.13+
+- pandas
+- statsmodels
+- pmdarima
 
-## License
-
-Internal use only.
+See `requirements.txt` for full list.

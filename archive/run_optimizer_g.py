@@ -6,7 +6,7 @@ import sys
 import os
 
 sys.path.append(os.getcwd())
-from g_optimiser_script import ProductDistribution
+from archive.g_optimiser_script import ProductDistribution
 
 
 def load_large_data():
