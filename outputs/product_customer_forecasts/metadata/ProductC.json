@@ -1,0 +1,29 @@
+{
+  "product": "ProductC",
+  "customer_ids": [
+    "Customer1",
+    "Customer2",
+    "Customer3"
+  ],
+  "num_customers": 3,
+  "model_type": "ARIMA",
+  "order": [
+    0,
+    0,
+    0
+  ],
+  "seasonal_order": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "rmse": 36.05551476519275,
+  "mae": 34.0,
+  "mape": NaN,
+  "forecast_years": 3,
+  "aggregation_mode": "yearly",
+  "success": true,
+  "error_message": null,
+  "generated_on": "2026-01-07 00:24:30"
+}

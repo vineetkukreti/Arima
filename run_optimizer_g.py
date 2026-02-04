@@ -6,12 +6,8 @@ import sys
 import os
 
 sys.path.append(os.getcwd())
+from g_optimiser_script import ProductDistribution
 
-try:
-    from confi import ProductDistribution
-except ImportError:
-    print("Error: Could not import ProductDistribution from confi.py")
-    sys.exit(1)
 
 def load_large_data():
     """Load the generated 10K dataset"""

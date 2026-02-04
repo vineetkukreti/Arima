@@ -1,12 +1,19 @@
-"""Product-Customer Forecasting Script
-=======================================
+"""Product Forecasting Script (Grouped by Product)
+===================================================
 
-Generate individual ARIMA or Prophet forecasting models for each Product-CustomerID
-combination. This enables granular analysis of product performance per customer.
+Generate individual ARIMA or Prophet forecasting models for each Product.
+For each product, all CustomerID records are aggregated together to train 
+a single model. This enables efficient batch processing with parallel execution.
+
+Workflow:
+    1. Group data by Product (not Product-CustomerID)
+    2. For each Product, aggregate all CustomerIDs' quantities
+    3. Train one ARIMA/Prophet model per Product
+    4. Save model, metadata, and visualization immediately after training
+    5. Process all products in parallel batches for speed
 
 Expected Data Columns:
     - Year: Year of the transaction
-    - Product Category: Category classification
     - Product: Specific product identifier
     - CustomerID: Customer identifier
     - Quantity: Sales/demand quantity
@@ -26,9 +33,12 @@ Usage:
     
     # Enable visualizations
     python -m src.models.product_customer_forecast --visualize
+    
+    # Disable parallel processing (sequential mode)
+    python -m src.models.product_customer_forecast --no-parallel
 
 Author: ARIMA Forecasting System
-Date: 2025-12-30
+Date: 2025-12-30 (Updated: 2026-01-01)
 """
 
 from __future__ import annotations
@@ -61,6 +71,7 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs" / "product_customer_forecasts"
 MODELS_DIR = OUTPUT_DIR / "models"
 METADATA_DIR = OUTPUT_DIR / "metadata"
 VIZ_DIR = OUTPUT_DIR / "visualizations"
+PREDICTIONS_DIR = OUTPUT_DIR / "model_predictions"
 
 
 @dataclass
@@ -81,7 +92,6 @@ class ForecastConfig:
     round_forecasts: bool = True
     filter_product: Optional[str] = None
     filter_customer: Optional[str] = None
-    filter_category: Optional[str] = None
     
     @property
     def forecast_periods(self) -> int:
@@ -94,8 +104,7 @@ class ModelResult:
     """Container for model results."""
     
     product: str
-    customer_id: str
-    product_category: str
+    customer_ids: List[str]  # List of all CustomerIDs for this product
     model_type: str
     order: Optional[Tuple[int, int, int]] = None
     seasonal_order: Optional[Tuple[int, int, int, int]] = None
@@ -103,12 +112,19 @@ class ModelResult:
     mae: Optional[float] = None
     mape: Optional[float] = None
     forecast: Optional[pd.DataFrame] = None
+    historical_data: Optional[pd.DataFrame] = None  # Store historical data for visualization
     error_message: Optional[str] = None
     success: bool = True
+    num_customers: int = 0  # Number of customers for this product
 
 
 class ProductCustomerForecaster:
-    """Forecasting system for Product-CustomerID combinations."""
+    """Forecasting system grouped by Product.
+    
+    Groups data by Product, aggregates all CustomerID records for each product,
+    trains one ARIMA/Prophet model per product, and saves results immediately.
+    Supports parallel batch processing for speed.
+    """
     
     def __init__(self, config: ForecastConfig):
         self.config = config
@@ -117,7 +133,7 @@ class ProductCustomerForecaster:
     
     def _ensure_directories(self) -> None:
         """Create output directories if they don't exist."""
-        for directory in [OUTPUT_DIR, MODELS_DIR, METADATA_DIR, VIZ_DIR]:
+        for directory in [OUTPUT_DIR, MODELS_DIR, METADATA_DIR, VIZ_DIR, PREDICTIONS_DIR]:
             directory.mkdir(parents=True, exist_ok=True)
         print(f"✓ Output directories ready: {OUTPUT_DIR}")
     
@@ -137,25 +153,47 @@ class ProductCustomerForecaster:
         print(f"✓ Loaded {len(df)} records")
         print(f"  Columns: {', '.join(df.columns.tolist())}")
         
+        # Auto-map common column name variations
+        column_mapping = {
+            'Time': 'Year',
+            'CUSTID': 'CustomerID',
+            'ItemCode': 'Product',
+            'Number': 'Quantity'
+        }
+        for old_col, new_col in column_mapping.items():
+            if old_col in df.columns and new_col not in df.columns:
+                df = df.rename(columns={old_col: new_col})
+                print(f"  Mapped column: {old_col} → {new_col}")
+        
         return df
     # 
-    def prepare_timeseries_data(self, df: pd.DataFrame) -> Dict[Tuple[str, str, str], pd.DataFrame]:
-        """Group data by Product-CustomerID-Category and create time series."""
+    def prepare_timeseries_data(self, df: pd.DataFrame) -> Dict[str, Dict]:
+        """Group data by Product only and create time series.
+        
+        Returns:
+            Dict with product as key, containing:
+                - 'ts_data': Time series DataFrame
+                - 'customer_ids': List of unique CustomerIDs for this product
+        """
         print("\nPreparing time series data...")
         print(f"  Aggregation mode: {self.config.aggregation_mode}")
+        print(f"  Grouping by: Product (aggregating all CustomerIDs per product)")
         
         # Validate required columns
-        required_cols = ['Year', 'Product', 'CustomerID', 'Product Category', 'Quantity']
+        required_cols = ['Year', 'Product', 'CustomerID', 'Quantity']
         missing_cols = [col for col in required_cols if col not in df.columns]
         if missing_cols:
             raise ValueError(f"Missing required columns: {missing_cols}")
         
+        grouped_data = {}
+        
         if self.config.aggregation_mode == 'yearly':
-            # Yearly aggregation (default mode)
-            grouped_data = {}
-            
-            for (product, customer_id, category), group in df.groupby(['Product', 'CustomerID', 'Product Category']):
-                # Aggregate by year
+            # Yearly aggregation (default mode) - Group by Product only
+            for product, group in df.groupby('Product'):
+                # Get all unique CustomerIDs for this product
+                customer_ids = group['CustomerID'].unique().tolist()
+                
+                # Aggregate by year (sum across all customers)
                 ts_data = group.groupby('Year')['Quantity'].sum().reset_index()
                 ts_data['Date'] = pd.to_datetime(ts_data['Year'].astype(str) + '-01-01')
                 ts_data = ts_data[['Date', 'Quantity']].set_index('Date')
@@ -163,43 +201,52 @@ class ProductCustomerForecaster:
                 
                 # Filter by minimum observations
                 if len(ts_data) >= self.config.min_observations:
-                    grouped_data[(product, customer_id, category)] = ts_data
+                    grouped_data[product] = {
+                        'ts_data': ts_data,
+                        'customer_ids': customer_ids
+                    }
         else:
             # Monthly aggregation (fallback for backward compatibility)
-            # Validate Month column is present
             if 'Month' not in df.columns:
                 raise ValueError("Month column is required for monthly aggregation mode")
             
-            # Clean data: remove rows with NaN in required columns and convert to proper types
+            # Clean data
             df = df.dropna(subset=['Year', 'Month'])
             df['Year'] = df['Year'].astype(int)
             df['Month'] = df['Month'].astype(int)
             df['Date'] = pd.to_datetime(df['Year'].astype(str) + '-' + df['Month'].astype(str).str.zfill(2) + '-01')
-            grouped_data = {}
             
-            for (product, customer_id, category), group in df.groupby(['Product', 'CustomerID', 'Product Category']):
-                # Aggregate by date and sum quantities
+            for product, group in df.groupby('Product'):
+                # Get all unique CustomerIDs for this product
+                customer_ids = group['CustomerID'].unique().tolist()
+                
+                # Aggregate by date (sum across all customers)
                 ts_data = group.groupby('Date')['Quantity'].sum().reset_index()
                 ts_data.set_index('Date', inplace=True)
                 ts_data = ts_data.asfreq('MS', fill_value=0)  # Monthly start frequency
                 
                 # Only include if we have enough observations
                 if len(ts_data) >= self.config.min_observations:
-                    grouped_data[(product, customer_id, category)] = ts_data
+                    grouped_data[product] = {
+                        'ts_data': ts_data,
+                        'customer_ids': customer_ids
+                    }
         
-        print(f"✓ Created {len(grouped_data)} Product-CustomerID-Category combinations")
-        print(f"  (Filtered out combinations with < {self.config.min_observations} observations)")
+        # Print summary
+        total_customers = sum(len(v['customer_ids']) for v in grouped_data.values())
+        print(f"✓ Created {len(grouped_data)} Product groups")
+        print(f"  Total unique CustomerIDs across products: {total_customers}")
+        print(f"  (Filtered out products with < {self.config.min_observations} observations)")
         
         return grouped_data
     
     def train_arima_model(
         self, 
         product: str, 
-        customer_id: str, 
-        product_category: str,
+        customer_ids: List[str], 
         ts_data: pd.DataFrame
     ) -> ModelResult:
-        """Train ARIMA model for a single Product-CustomerID-Category combination."""
+        """Train ARIMA model for a single Product (aggregated across all customers)."""
         try:
             # Train-test split
             train_size = int(len(ts_data) * self.config.train_test_split)
@@ -285,16 +332,15 @@ class ProductCustomerForecaster:
                 forecast_df['Lower_CI'] = forecast_df['Lower_CI'].clip(lower=0).round(0).astype(int)
                 forecast_df['Upper_CI'] = forecast_df['Upper_CI'].clip(lower=0).round(0).astype(int)
             
-            # Save model
-            model_filename = f"{product}_{customer_id}_{product_category}.pkl"
+            # Save model (named by product only)
+            model_filename = f"{product}.pkl"
             model_path = MODELS_DIR / model_filename
             with open(model_path, 'wb') as f:
                 pickle.dump(fitted_model, f)
             
             return ModelResult(
                 product=product,
-                customer_id=customer_id,
-                product_category=product_category,
+                customer_ids=customer_ids,
                 model_type='ARIMA',
                 order=best_order,
                 seasonal_order=seasonal_order,
@@ -302,27 +348,28 @@ class ProductCustomerForecaster:
                 mae=metrics.get('mae'),
                 mape=metrics.get('mape'),
                 forecast=forecast_df,
-                success=True
+                historical_data=ts_data,
+                success=True,
+                num_customers=len(customer_ids)
             )
             
         except Exception as e:
             return ModelResult(
                 product=product,
-                customer_id=customer_id,
-                product_category=product_category,
+                customer_ids=customer_ids,
                 model_type='ARIMA',
                 error_message=str(e),
-                success=False
+                success=False,
+                num_customers=len(customer_ids)
             )
     
     def train_prophet_model(
         self,
         product: str,
-        customer_id: str,
-        product_category: str,
+        customer_ids: List[str],
         ts_data: pd.DataFrame
     ) -> ModelResult:
-        """Train Prophet model for a single Product-CustomerID-Category combination."""
+        """Train Prophet model for a single Product (aggregated across all customers)."""
         try:
             from prophet import Prophet
             
@@ -383,52 +430,52 @@ class ProductCustomerForecaster:
                 forecast_df['Lower_CI'] = forecast_df['Lower_CI'].clip(lower=0).round(0).astype(int)
                 forecast_df['Upper_CI'] = forecast_df['Upper_CI'].clip(lower=0).round(0).astype(int)
             
-            # Save model
-            model_filename = f"{product}_{customer_id}_{product_category}.pkl"
+            # Save model (named by product only)
+            model_filename = f"{product}.pkl"
             model_path = MODELS_DIR / model_filename
             with open(model_path, 'wb') as f:
                 pickle.dump(model, f)
             
             return ModelResult(
                 product=product,
-                customer_id=customer_id,
-                product_category=product_category,
+                customer_ids=customer_ids,
                 model_type='Prophet',
                 rmse=metrics.get('rmse'),
                 mae=metrics.get('mae'),
                 mape=metrics.get('mape'),
                 forecast=forecast_df,
-                success=True
+                historical_data=ts_data,
+                success=True,
+                num_customers=len(customer_ids)
             )
             
         except ImportError:
             return ModelResult(
                 product=product,
-                customer_id=customer_id,
-                product_category=product_category,
+                customer_ids=customer_ids,
                 model_type='Prophet',
                 error_message="Prophet not installed. Run: pip install prophet",
-                success=False
+                success=False,
+                num_customers=len(customer_ids) if customer_ids else 0
             )
         except Exception as e:
             return ModelResult(
                 product=product,
-                customer_id=customer_id,
-                product_category=product_category,
+                customer_ids=customer_ids,
                 model_type='Prophet',
                 error_message=str(e),
-                success=False
+                success=False,
+                num_customers=len(customer_ids) if customer_ids else 0
             )
     
     def create_visualization(
         self,
         product: str,
-        customer_id: str,
-        product_category: str,
+        customer_ids: List[str],
         historical: pd.DataFrame,
         forecast: pd.DataFrame
     ) -> None:
-        """Create forecast visualization for a Product-CustomerID-Category combination."""
+        """Create forecast visualization for a Product (aggregated across customers)."""
         try:
             plt.figure(figsize=(14, 6))
             
@@ -471,7 +518,7 @@ class ProductCustomerForecaster:
             )
             
             plt.title(
-                f'Forecast: {product} ({product_category}) - Customer {customer_id}',
+                f'Forecast: {product} (Aggregated from {len(customer_ids)} Customers)',
                 fontsize=14,
                 fontweight='bold'
             )
@@ -482,20 +529,28 @@ class ProductCustomerForecaster:
             plt.xticks(rotation=45)
             plt.tight_layout()
             
-            # Save with error handling
-            viz_path = VIZ_DIR / f"{product}_{customer_id}_{product_category}.png"
+            # Save with error handling (named by product only)
+            viz_path = VIZ_DIR / f"{product}.png"
             plt.savefig(viz_path, dpi=300, bbox_inches='tight')
             plt.close()
         except Exception as e:
-            print(f"  Warning: Failed to save visualization for {product}_{customer_id}_{product_category}: {e}")
+            print(f"  Warning: Failed to save visualization for {product}: {e}")
             plt.close()  # Ensure figure is closed even on error
     
     def save_metadata(self, result: ModelResult) -> None:
         """Save model metadata to JSON file."""
+        # Helper to convert numpy types to native Python types
+        def convert_to_native(val):
+            if hasattr(val, 'item'):  # numpy scalar
+                return val.item()
+            if isinstance(val, list):
+                return [convert_to_native(v) for v in val]
+            return val
+        
         metadata = {
-            'product': result.product,
-            'customer_id': result.customer_id,
-            'product_category': result.product_category,
+            'product': convert_to_native(result.product),
+            'customer_ids': convert_to_native(result.customer_ids),
+            'num_customers': result.num_customers,
             'model_type': result.model_type,
             'order': result.order,
             'seasonal_order': result.seasonal_order,
@@ -509,11 +564,73 @@ class ProductCustomerForecaster:
             'generated_on': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
-        metadata_path = METADATA_DIR / f"{result.product}_{result.customer_id}_{result.product_category}.json"
+        # Save metadata (named by product only)
+        metadata_path = METADATA_DIR / f"{convert_to_native(result.product)}.json"
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=2)
     
-    def export_results(self, grouped_data: Dict[Tuple[str, str, str], pd.DataFrame]) -> None:
+    def save_prediction_excel(self, result: ModelResult) -> None:
+        """Save individual product prediction to Excel file."""
+        if not result.success or result.forecast is None:
+            return
+        
+        try:
+            # Prepare forecast data
+            forecast_df = result.forecast.reset_index()
+            forecast_df.insert(0, 'Product', result.product)
+            forecast_df.insert(1, 'Num_Customers', result.num_customers)
+            
+            # Prepare historical data
+            historical_df = result.historical_data.reset_index()
+            historical_df.insert(0, 'Product', result.product)
+            historical_df.insert(1, 'Num_Customers', result.num_customers)
+            historical_df.columns = ['Product', 'Num_Customers', 'Date', 'Historical_Quantity']
+            
+            # Prepare metadata summary
+            metadata_df = pd.DataFrame([{
+                'Product': result.product,
+                'Num_Customers': result.num_customers,
+                'Customer_IDs': ', '.join(str(c) for c in result.customer_ids),
+                'Model_Type': result.model_type,
+                'ARIMA_Order': str(result.order) if result.order else 'N/A',
+                'Seasonal_Order': str(result.seasonal_order) if result.seasonal_order else 'N/A',
+                'RMSE': result.rmse if result.rmse else 'N/A',
+                'MAE': result.mae if result.mae else 'N/A',
+                'MAPE': f"{result.mape:.2f}%" if result.mape else 'N/A',
+                'Forecast_Years': self.config.forecast_years,
+                'Aggregation_Mode': self.config.aggregation_mode,
+                'Generated_On': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }])
+            
+            # Create yearly forecast summary (one row with columns for each year)
+            forecast_reset = result.forecast.reset_index()
+            yearly_summary_dict = {
+                'Product': result.product,
+                'Num_Customers': result.num_customers
+            }
+            
+            # Add each forecasted year as a separate column
+            for idx, row in forecast_reset.iterrows():
+                year = row['Date'].year
+                yearly_summary_dict[f'Year_{year}_Forecast'] = row['Forecast']
+                yearly_summary_dict[f'Year_{year}_Lower_CI'] = row['Lower_CI']
+                yearly_summary_dict[f'Year_{year}_Upper_CI'] = row['Upper_CI']
+            
+            yearly_forecast_df = pd.DataFrame([yearly_summary_dict])
+            
+            # Save to Excel with multiple sheets
+            # PREDICTIONS_DIR is already defined globally and created in _ensure_directories
+            excel_path = PREDICTIONS_DIR / f"{result.product}.xlsx"
+            with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+                metadata_df.to_excel(writer, sheet_name='Metadata', index=False)
+                yearly_forecast_df.to_excel(writer, sheet_name='Yearly_Forecast', index=False)
+                forecast_df.to_excel(writer, sheet_name='Forecast_Details', index=False)
+                historical_df.to_excel(writer, sheet_name='Historical', index=False)
+            
+        except Exception as e:
+            print(f"  Warning: Failed to save prediction Excel for {result.product}: {e}")
+    
+    def export_results(self, grouped_data: Dict[str, Dict]) -> None:
         """Export all results to Excel and CSV."""
         print("\nExporting results...")
         
@@ -524,8 +641,8 @@ class ProductCustomerForecaster:
         for result in self.results:
             summary_row = {
                 'Product': result.product,
-                'CustomerID': result.customer_id,
-                'Product_Category': result.product_category,
+                'Num_Customers': result.num_customers,
+                'CustomerIDs': ', '.join(str(c) for c in result.customer_ids[:10]) + ('...' if len(result.customer_ids) > 10 else ''),
                 'Model_Type': result.model_type,
                 'ARIMA_Order': str(result.order) if result.order else 'N/A',
                 'Seasonal_Order': str(result.seasonal_order) if result.seasonal_order else 'N/A',
@@ -541,8 +658,7 @@ class ProductCustomerForecaster:
                 # Add forecast data
                 forecast_copy = result.forecast.reset_index()
                 forecast_copy.insert(0, 'Product', result.product)
-                forecast_copy.insert(1, 'CustomerID', result.customer_id)
-                forecast_copy.insert(2, 'Product_Category', result.product_category)
+                forecast_copy.insert(1, 'CustomerID', ', '.join(str(c) for c in result.customer_ids))
                 all_forecasts.append(forecast_copy)
         
         summary_df = pd.DataFrame(summary_rows)
@@ -563,37 +679,42 @@ class ProductCustomerForecaster:
         summary_df.to_csv(csv_path, index=False)
         print(f"✓ Summary CSV saved to: {csv_path}")
     
-    def _train_single_combination(self, args: Tuple) -> ModelResult:
-        """Helper function for parallel processing of a single combination."""
-        product, customer_id, category, ts_data = args
+    def _train_single_product(self, args: Tuple) -> ModelResult:
+        """Helper function for parallel processing of a single product."""
+        product, data_dict = args
+        ts_data = data_dict['ts_data']
+        customer_ids = data_dict['customer_ids']
         
         # Train model
         if self.config.model_type.lower() == 'prophet':
-            result = self.train_prophet_model(product, customer_id, category, ts_data)
+            result = self.train_prophet_model(product, customer_ids, ts_data)
         else:
-            result = self.train_arima_model(product, customer_id, category, ts_data)
+            result = self.train_arima_model(product, customer_ids, ts_data)
         
-        # Save metadata
+        # Save metadata immediately after training
         self.save_metadata(result)
+        
+        # Save prediction Excel file
+        # self.save_prediction_excel(result)
         
         # Create visualization if requested
         if self.config.visualize and result.success and result.forecast is not None:
-            self.create_visualization(product, customer_id, category, ts_data, result.forecast)
+            self.create_visualization(product, customer_ids, ts_data, result.forecast)
         
         return result
     
-    def _run_parallel(self, grouped_data: Dict[Tuple[str, str, str], pd.DataFrame]) -> None:
+    def _run_parallel(self, grouped_data: Dict[str, Dict]) -> None:
         """Run model training in parallel using multiprocessing."""
         # Prepare arguments for parallel processing
         args_list = [
-            (product, customer_id, category, ts_data)
-            for (product, customer_id, category), ts_data in grouped_data.items()
+            (product, data_dict)
+            for product, data_dict in grouped_data.items()
         ]
         
         # Run parallel processing with progress bar
         with mp.Pool(processes=self.config.num_workers) as pool:
             results = list(tqdm(
-                pool.imap(self._train_single_combination, args_list),
+                pool.imap(self._train_single_product, args_list),
                 total=len(args_list),
                 desc="Training models (parallel)"
             ))
@@ -603,7 +724,7 @@ class ProductCustomerForecaster:
     def run(self) -> None:
         """Main execution workflow."""
         print("=" * 80)
-        print("PRODUCT-CUSTOMER FORECASTING SYSTEM")
+        print("PRODUCT FORECASTING SYSTEM (Grouped by Product)")
         print("=" * 80)
         
         # Load data
@@ -619,10 +740,6 @@ class ProductCustomerForecaster:
             # Ensure string comparison for CustomerID
             df = df[df['CustomerID'].astype(str) == str(self.config.filter_customer)]
             
-        if self.config.filter_category:
-            print(f"Filtering by Product Category: {self.config.filter_category}")
-            df = df[df['Product Category'] == self.config.filter_category]
-            
         if len(df) == 0:
             print("\n✗ No data found after applying filters!")
             return
@@ -631,13 +748,13 @@ class ProductCustomerForecaster:
         grouped_data = self.prepare_timeseries_data(df)
         
         if len(grouped_data) == 0:
-            print("\n✗ No valid Product-CustomerID-Category combinations found!")
-            print(f"  Ensure combinations have at least {self.config.min_observations} observations")
+            print("\n✗ No valid Product groups found!")
+            print(f"  Ensure products have at least {self.config.min_observations} observations")
             return
         
         # Train models
         print(f"\nTraining {self.config.model_type.upper()} models...")
-        print(f"Processing {len(grouped_data)} combinations...")
+        print(f"Processing {len(grouped_data)} products...")
         print(f"Aggregation mode: {self.config.aggregation_mode}")
         print(f"Parallel processing: {'Enabled' if self.config.parallel_processing else 'Disabled'}\n")
         
@@ -647,21 +764,27 @@ class ProductCustomerForecaster:
             self._run_parallel(grouped_data)
         else:
             # Sequential processing
-            for (product, customer_id, category), ts_data in tqdm(grouped_data.items(), desc="Training models"):
+            for product, data_dict in tqdm(grouped_data.items(), desc="Training models"):
+                ts_data = data_dict['ts_data']
+                customer_ids = data_dict['customer_ids']
+                
                 # Train model
                 if self.config.model_type.lower() == 'prophet':
-                    result = self.train_prophet_model(product, customer_id, category, ts_data)
+                    result = self.train_prophet_model(product, customer_ids, ts_data)
                 else:
-                    result = self.train_arima_model(product, customer_id, category, ts_data)
+                    result = self.train_arima_model(product, customer_ids, ts_data)
                 
                 self.results.append(result)
                 
-                # Save metadata
+                # Save metadata immediately after training
                 self.save_metadata(result)
+                
+                # Save prediction Excel file
+                self.save_prediction_excel(result)
                 
                 # Create visualization if requested and successful
                 if self.config.visualize and result.success and result.forecast is not None:
-                    self.create_visualization(product, customer_id, category, ts_data, result.forecast)
+                    self.create_visualization(product, customer_ids, ts_data, result.forecast)
         
         # Export results
         self.export_results(grouped_data)
@@ -669,11 +792,13 @@ class ProductCustomerForecaster:
         # Print summary
         successful = sum(1 for r in self.results if r.success)
         failed = len(self.results) - successful
+        total_customers = sum(r.num_customers for r in self.results if r.success)
         
         print("\n" + "=" * 80)
         print("FORECAST SUMMARY")
         print("=" * 80)
-        print(f"Total Combinations: {len(self.results)}")
+        print(f"Total Products: {len(self.results)}")
+        print(f"Total Customers (aggregated): {total_customers}")
         print(f"Successful: {successful}")
         print(f"Failed: {failed}")
         
@@ -756,11 +881,6 @@ def main():
         type=str,
         help='Filter by specific CustomerID'
     )
-    parser.add_argument(
-        '--category',
-        type=str,
-        help='Filter by specific Product Category'
-    )
     
     args = parser.parse_args()
     
@@ -781,8 +901,7 @@ def main():
         num_workers=args.workers,
         round_forecasts=args.round_forecasts,
         filter_product=args.product,
-        filter_customer=args.customer,
-        filter_category=args.category
+        filter_customer=args.customer
     )
     
     # Run forecasting
