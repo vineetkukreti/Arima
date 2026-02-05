@@ -674,6 +674,55 @@ class ProductCustomerForecaster:
         logger.info("=" * 80)
         logger.info("ANALYSIS COMPLETE!")
 
+    # def export_results(self, grouped_data: Dict[str, Dict]) -> None:
+    #     """Export all results to Excel and CSV."""
+    #     print("\nExporting results...")
+        
+    #     # Prepare summary data
+    #     summary_rows = []
+    #     all_forecasts = []
+        
+    #     for result in self.results:
+    #         summary_row = {
+    #             'Product': result.product,
+    #             'Num_Customers': result.num_customers,
+    #             'CustomerIDs': ', '.join(str(c) for c in result.customer_ids[:10]) + ('...' if len(result.customer_ids) > 10 else ''),
+    #             'Model_Type': result.model_type,
+    #             'ARIMA_Order': str(result.order) if result.order else 'N/A',
+    #             'Seasonal_Order': str(result.seasonal_order) if result.seasonal_order else 'N/A',
+    #             'RMSE': f"{result.rmse:.2f}" if result.rmse else 'N/A',
+    #             'MAE': f"{result.mae:.2f}" if result.mae else 'N/A',
+    #             'MAPE': f"{result.mape:.2f}%" if result.mape else 'N/A',
+    #             'Success': result.success,
+    #             'Error': result.error_message if result.error_message else ''
+    #         }
+    #         summary_rows.append(summary_row)
+            
+    #         if result.success and result.forecast is not None:
+    #             # Add forecast data
+    #             forecast_copy = result.forecast.reset_index()
+    #             forecast_copy.insert(0, 'Product', result.product)
+    #             forecast_copy.insert(1, 'CustomerID', ', '.join(str(c) for c in result.customer_ids))
+    #             all_forecasts.append(forecast_copy)
+        
+    #     summary_df = pd.DataFrame(summary_rows)
+        
+    #     # Export to Excel
+    #     excel_path = OUTPUT_DIR / 'consolidated_forecasts.xlsx'
+    #     with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+    #         summary_df.to_excel(writer, sheet_name='Summary', index=False)
+            
+    #         if all_forecasts:
+    #             forecasts_df = pd.concat(all_forecasts, ignore_index=True)
+    #             forecasts_df.to_excel(writer, sheet_name='All_Forecasts', index=False)
+        
+    #     print(f"✓ Excel report saved to: {excel_path}")
+        
+    #     # Export summary to CSV
+    #     csv_path = OUTPUT_DIR / 'forecast_summary.csv'
+    #     summary_df.to_csv(csv_path, index=False)
+    #     print(f"✓ Summary CSV saved to: {csv_path}")
+
 
 def main():
     """Main entry point with argument parsing."""
