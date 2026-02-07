@@ -23,6 +23,8 @@ pip install -r requirements.txt
 
 ## Usage
 
+### Option 1: Using Data Files (Command Line)
+
 ```bash
 python -m src.models.product_customer_forecast --data data/your_data.xlsx
 
@@ -33,7 +35,8 @@ python -m src.models.product_customer_forecast \
     --visualize
 ```
 
-Or use the Python API:
+### Option 2: Using Data Files (Python API)
+
 ```python
 from src.models.product_customer_forecast import ProductCustomerForecaster, ForecastConfig
 
@@ -46,6 +49,66 @@ forecaster = ProductCustomerForecaster(config)
 forecaster.run()
 results_df = forecaster.get_results_dataframe()
 ```
+
+### Option 3: ERP Integration (Python API)
+
+For ERP integration, use a DataFrame instead of a file path:
+
+```python
+from src.models.product_customer_forecast import ProductCustomerForecaster, ForecastConfig
+import pandas as pd
+
+# Import data from ERP (client implements this function)
+def ImportFromErp():
+    """
+    Client-implemented function to fetch data from ERP system.
+    Should return a DataFrame with columns: Year, Product, CustomerID, Quantity
+    
+    Example implementation (replace with actual ERP logic):
+    """
+    # TODO: Replace with actual ERP API call/database query
+    return pd.read_excel('data/erp_export.xlsx')
+
+# Get data from ERP
+erp_data = ImportFromErp()
+
+# Configure forecaster with DataFrame (not file path)
+config = ForecastConfig(
+    data_path=None,           # Set to None when using dataframe
+    dataframe=erp_data,       # Pass ERP data directly
+    forecast_years=3
+)
+
+# Run forecasting
+forecaster = ProductCustomerForecaster(config)
+forecaster.run()
+
+# Get results
+results_df = forecaster.get_results_dataframe()
+
+# Export results back to ERP (client implements this function)
+def ExportToErp(results_df):
+    """
+    Client-implemented function to send forecast results to ERP system.
+    
+    Args:
+        results_df: DataFrame with columns [Product, Num_Customers, Date, Forecast]
+    
+    Example implementation (replace with actual ERP logic):
+    """
+    # TODO: Replace with actual ERP API call/database insert
+    print(f"Exporting {len(results_df)} forecast records to ERP...")
+    # results_df.to_sql('forecasts', erp_connection)
+    pass
+
+# Send results back to ERP
+ExportToErp(results_df)
+```
+
+**Note:** The system ensures only ONE data source is used at a time:
+- If `data_path` is provided → loads from file
+- If `dataframe` is provided (and `data_path` is None) → uses the dataframe
+- Both cannot be used simultaneously
 
 ## Input Format
 
@@ -70,14 +133,47 @@ Common column name variations are automatically mapped (e.g., Time → Year).
 
 ## Output
 
-Returns a DataFrame with forecasts:
+### In-Memory Results
+
+Get forecasts as a DataFrame (no files created):
 ```python
+results_df = forecaster.get_results_dataframe()
+
+# DataFrame structure:
      Product  Num_Customers       Date  Forecast
 0  Product_1             90 2025-01-01       842
 1  Product_1             90 2026-01-01       842
 ```
 
-Also generates JSON files with model metadata (parameters, error metrics, customer lists).
+### Export Options
+
+#### 1. Export to Local Files (Excel/CSV)
+
+Use `export_results()` for local file exports:
+```python
+forecaster.export_results()
+
+# Creates:
+# - outputs/product_customer_forecasts/consolidated_forecasts.xlsx
+# - outputs/product_customer_forecasts/forecast_summary.csv
+```
+
+#### 2. Export to ERP System
+
+Use the client-implemented `ExportToErp()` function:
+```python
+ExportToErp(results_df)  # Client implements this function
+```
+
+### Metadata Files
+
+The system automatically generates JSON files with model metadata for each product:
+- Model parameters (ARIMA order, seasonal order)
+- Performance metrics (RMSE, MAE, MAPE)
+- Customer lists
+- Forecast configuration
+
+Location: `outputs/product_customer_forecasts/metadata/`
 
 ## Configuration
 
@@ -85,12 +181,15 @@ Key parameters:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| data_path | Required | Path to data file |
+| data_path | None | Path to data file (use this OR dataframe, not both) |
+| dataframe | None | Pandas DataFrame (use this OR data_path, not both) |
 | forecast_years | 3 | Years to forecast |
 | min_observations | 5 | Min years needed |
 | visualize | False | Create charts |
 | parallel_processing | True | Use multiprocessing |
 | num_workers | 15 | Worker threads |
+
+**Note:** Either `data_path` or `dataframe` must be provided. If both are provided, `data_path` takes priority.
 
 ## How It Works
 
@@ -123,6 +222,92 @@ Products need at least `min_observations` years of data. Try lowering this value
 
 **Running slow?**
 Enable parallel processing: `--workers 15`, or filter to specific products: `--product Product_1`
+
+## ERP Integration
+
+The forecasting system supports integration with ERP systems through two client-implemented functions: `ImportFromErp()` and `ExportToErp()`. These are **placeholder functions** that clients should implement according to their ERP system's requirements.
+
+### ImportFromErp() - Data Import
+
+**Purpose:** Fetch historical sales data from your ERP system.
+
+**Implementation Requirements:**
+- Must return a pandas DataFrame
+- Required columns: `Year`, `Product`, `CustomerID`, `Quantity`
+- Optional columns: `Month`, `Product Category`
+
+**Example Implementation:**
+```python
+def ImportFromErp():
+    """
+    Fetch data from ERP system.
+    Replace this with your actual ERP integration logic.
+    """
+    # Option 1: Database query
+    import sqlalchemy
+    engine = sqlalchemy.create_engine('your_erp_connection_string')
+    query = """
+        SELECT 
+            YEAR(OrderDate) as Year,
+            ProductCode as Product,
+            CustomerCode as CustomerID,
+            SUM(Quantity) as Quantity
+        FROM SalesOrders
+        WHERE OrderDate >= '2020-01-01'
+        GROUP BY YEAR(OrderDate), ProductCode, CustomerCode
+    """
+    return pd.read_sql(query, engine)
+    
+    # Option 2: API call
+    # response = requests.get('https://erp.example.com/api/sales')
+    # return pd.DataFrame(response.json())
+    
+    # Option 3: File export from ERP
+    # return pd.read_excel('erp_export.xlsx')
+```
+
+### ExportToErp() - Results Export
+
+**Purpose:** Send forecast results back to your ERP system.
+
+**Input:** DataFrame with columns:
+- `Product`: Product identifier
+- `Num_Customers`: Number of customers for this product
+- `Date`: Forecast date (datetime)
+- `Forecast`: Forecasted quantity (integer)
+
+**Example Implementation:**
+```python
+def ExportToErp(results_df):
+    """
+    Send forecast results to ERP system.
+    Replace this with your actual ERP integration logic.
+    """
+    # Option 1: Database insert
+    import sqlalchemy
+    engine = sqlalchemy.create_engine('your_erp_connection_string')
+    results_df.to_sql('ForecastResults', engine, if_exists='append', index=False)
+    print(f"✓ Exported {len(results_df)} records to ERP database")
+    
+    # Option 2: API call
+    # import requests
+    # payload = results_df.to_dict('records')
+    # response = requests.post('https://erp.example.com/api/forecasts', json=payload)
+    # print(f"✓ API response: {response.status_code}")
+    
+    # Option 3: File export for ERP import
+    # results_df.to_excel('forecast_for_erp.xlsx', index=False)
+    # print(f"✓ Created forecast_for_erp.xlsx for ERP import")
+```
+
+### Sample Implementations
+
+See `forecast_notebook.ipynb` for working examples of both functions. The notebook includes:
+- Sample `ImportFromErp()` that reads from a local file
+- Sample `ExportToErp()` that prints results
+- Complete workflow from ERP data → forecasting → ERP export
+
+**Note:** These are demonstration functions. Clients should replace them with actual ERP integration code.
 
 ## Project Structure
 

@@ -83,8 +83,12 @@ PREDICTIONS_DIR = OUTPUT_DIR / "model_predictions"
 class ForecastConfig:
     """Configuration for forecasting parameters."""
     
-    data_path: Path
+    data_path: Optional[Path] = None
+    dataframe: Optional[pd.DataFrame] = None  # Optional DataFrame to hold loaded data
+        
+        
     forecast_years: int = 3  # Default: 3 years of forecasting
+
     min_observations: int = 5  # Minimum 5 years for reliable ARIMA (was 3)
     visualize: bool = False
     train_test_split: float = 0.8
@@ -140,6 +144,7 @@ class ModelResult:
     error_message: Optional[str] = None
     success: bool = True
     num_customers: int = 0  # Number of customers for this product
+    model_type: str = "ARIMA"  # Type of model used
 
 
 class ProductCustomerForecaster:
@@ -204,20 +209,9 @@ class ProductCustomerForecaster:
         
         logger.info("Data quality validation complete")
     
-    def load_data(self) -> pd.DataFrame:
-        """Load and preprocess the data."""
-        logger.info(f"Loading data from: {self.config.data_path}")
-        
-        if not self.config.data_path.exists():
-            raise FileNotFoundError(f"Data file not found: {self.config.data_path}")
-        
-        # Load Excel or CSV
-        if self.config.data_path.suffix == ".csv":
-            df = pd.read_csv(self.config.data_path)
-        else:
-            df = pd.read_excel(self.config.data_path)
-        
-        logger.info(f"Loaded {len(df)} records")
+    def _preprocess_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Preprocess data: column mapping and validation."""
+        logger.info(f"Preprocessing data: {len(df)} records")
         logger.info(f"Columns: {', '.join(df.columns.tolist())}")
         
         # Auto-map common column name variations
@@ -236,6 +230,21 @@ class ProductCustomerForecaster:
         self._validate_data_quality(df)
         
         return df
+    
+    def load_data(self) -> pd.DataFrame:
+        """Load and preprocess the data from file."""
+        logger.info(f"Loading data from: {self.config.data_path}")
+        
+        if not self.config.data_path.exists():
+            raise FileNotFoundError(f"Data file not found: {self.config.data_path}")
+        
+        # Load Excel or CSV
+        if self.config.data_path.suffix == ".csv":
+            df = pd.read_csv(self.config.data_path)
+        else:
+            df = pd.read_excel(self.config.data_path)
+        
+        return self._preprocess_data(df)
     # 
     def prepare_timeseries_data(self, df: pd.DataFrame) -> Dict[str, Dict]:
         """Group data by Product only and create time series.
@@ -594,8 +603,15 @@ class ProductCustomerForecaster:
         logger.info("PRODUCT FORECASTING SYSTEM (Grouped by Product)")
         logger.info("=" * 80)
         
-        # Load data
-        df = self.load_data()
+        # Load data from file or use provided dataframe (only one source is used)
+        if self.config.data_path is not None:
+            logger.info(f"Loading data from file: {self.config.data_path}")
+            df = self.load_data()
+        elif self.config.dataframe is not None:
+            logger.info("Using provided dataframe (e.g., from ImportFromErp)")
+            df = self._preprocess_data(self.config.dataframe.copy())
+        else:
+            raise ValueError("Either data_path or dataframe must be provided")
         
         # Apply filters if specified
         if self.config.filter_product:
@@ -673,55 +689,71 @@ class ProductCustomerForecaster:
         logger.info(f"Results saved to: {OUTPUT_DIR}")
         logger.info("=" * 80)
         logger.info("ANALYSIS COMPLETE!")
+        logger.info("Tip: Call forecaster.export_results() to generate Excel/CSV exports")
 
-    # def export_results(self, grouped_data: Dict[str, Dict]) -> None:
-    #     """Export all results to Excel and CSV."""
-    #     print("\nExporting results...")
+    def export_results(self) -> None:
+        """Export all results to Excel and CSV files (for local use).
         
-    #     # Prepare summary data
-    #     summary_rows = []
-    #     all_forecasts = []
+        This method exports forecast results to local Excel and CSV files.
+        Use this when you need to review results locally or share them as files.
         
-    #     for result in self.results:
-    #         summary_row = {
-    #             'Product': result.product,
-    #             'Num_Customers': result.num_customers,
-    #             'CustomerIDs': ', '.join(str(c) for c in result.customer_ids[:10]) + ('...' if len(result.customer_ids) > 10 else ''),
-    #             'Model_Type': result.model_type,
-    #             'ARIMA_Order': str(result.order) if result.order else 'N/A',
-    #             'Seasonal_Order': str(result.seasonal_order) if result.seasonal_order else 'N/A',
-    #             'RMSE': f"{result.rmse:.2f}" if result.rmse else 'N/A',
-    #             'MAE': f"{result.mae:.2f}" if result.mae else 'N/A',
-    #             'MAPE': f"{result.mape:.2f}%" if result.mape else 'N/A',
-    #             'Success': result.success,
-    #             'Error': result.error_message if result.error_message else ''
-    #         }
-    #         summary_rows.append(summary_row)
+        Note: This is different from ExportToErp() which will be implemented
+        separately for ERP system integration.
+        
+        Usage:
+            forecaster.export_results()
+        
+        Output files:
+            - outputs/product_customer_forecasts/consolidated_forecasts.xlsx
+            - outputs/product_customer_forecasts/forecast_summary.csv
+        """
+        print("\nExporting results...")
+        
+        # Prepare summary data
+        summary_rows = []
+        all_forecasts = []
+        
+        for result in self.results:
+            summary_row = {
+                'Product': result.product,
+                'Num_Customers': result.num_customers,
+                'CustomerIDs': ', '.join(str(c) for c in result.customer_ids[:10]) + ('...' if len(result.customer_ids) > 10 else ''),
+                'Model_Type': result.model_type,
+                'ARIMA_Order': str(result.order) if result.order else 'N/A',
+                'Seasonal_Order': str(result.seasonal_order) if result.seasonal_order else 'N/A',
+                'RMSE': f"{result.rmse:.2f}" if result.rmse else 'N/A',
+                'MAE': f"{result.mae:.2f}" if result.mae else 'N/A',
+                'MAPE': f"{result.mape:.2f}%" if result.mape else 'N/A',
+                'Success': result.success,
+                'Error': result.error_message if result.error_message else ''
+            }
+            summary_rows.append(summary_row)
             
-    #         if result.success and result.forecast is not None:
-    #             # Add forecast data
-    #             forecast_copy = result.forecast.reset_index()
-    #             forecast_copy.insert(0, 'Product', result.product)
-    #             forecast_copy.insert(1, 'CustomerID', ', '.join(str(c) for c in result.customer_ids))
-    #             all_forecasts.append(forecast_copy)
+            if result.success and result.forecast is not None:
+                # Add forecast data
+                forecast_copy = result.forecast.reset_index()
+                forecast_copy.insert(0, 'Product', result.product)
+                forecast_copy.insert(1, 'Num_Customers', result.num_customers)
+                forecast_copy.insert(2, 'CustomerID', ', '.join(str(c) for c in result.customer_ids[:5]) + ('...' if len(result.customer_ids) > 5 else ''))
+                all_forecasts.append(forecast_copy)
         
-    #     summary_df = pd.DataFrame(summary_rows)
+        summary_df = pd.DataFrame(summary_rows)
         
-    #     # Export to Excel
-    #     excel_path = OUTPUT_DIR / 'consolidated_forecasts.xlsx'
-    #     with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
-    #         summary_df.to_excel(writer, sheet_name='Summary', index=False)
+        # Export to Excel
+        excel_path = OUTPUT_DIR / 'consolidated_forecasts.xlsx'
+        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+            summary_df.to_excel(writer, sheet_name='Summary', index=False)
             
-    #         if all_forecasts:
-    #             forecasts_df = pd.concat(all_forecasts, ignore_index=True)
-    #             forecasts_df.to_excel(writer, sheet_name='All_Forecasts', index=False)
+            if all_forecasts:
+                forecasts_df = pd.concat(all_forecasts, ignore_index=True)
+                forecasts_df.to_excel(writer, sheet_name='All_Forecasts', index=False)
         
-    #     print(f"✓ Excel report saved to: {excel_path}")
+        print(f"✓ Excel report saved to: {excel_path}")
         
-    #     # Export summary to CSV
-    #     csv_path = OUTPUT_DIR / 'forecast_summary.csv'
-    #     summary_df.to_csv(csv_path, index=False)
-    #     print(f"✓ Summary CSV saved to: {csv_path}")
+        # Export summary to CSV
+        csv_path = OUTPUT_DIR / 'forecast_summary.csv'
+        summary_df.to_csv(csv_path, index=False)
+        print(f"✓ Summary CSV saved to: {csv_path}")
 
 
 def main():
