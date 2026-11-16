@@ -110,6 +110,19 @@ ExportToErp(results_df)
 - If `dataframe` is provided (and `data_path` is None) → uses the dataframe
 - Both cannot be used simultaneously
 
+## XGBoost Baseline (experimental)
+
+`xgboost_forecast.py` is a standalone comparison script that fits an `XGBRegressor` on `Data-14.csv` (columns: Year, Country, Product, Container, Quantity). Country and Container are label-encoded; years up to 2022 are used for training and later years for testing. It prints MAE, RMSE and R² for the train and test splits.
+
+`xgboost` and `scikit-learn` are not in `pyproject.toml`, so install them first:
+
+```bash
+pip install xgboost scikit-learn
+python xgboost_forecast.py
+```
+
+The script reads `Data-14.csv` from the current directory, so run it from the repository root.
+
 ## Input Format
 
 Your data file needs these columns:
